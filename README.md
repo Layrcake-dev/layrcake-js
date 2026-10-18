@@ -19,13 +19,13 @@ import { Layrcake, getApproval } from "layrcake";
 
 const layrcake = new Layrcake(); // reads LAYRCAKE_API_KEY
 
-const { result: found } = await layrcake.findLeads({ audience: "Heads of Sales at US software companies with 50 to 500 staff", limit: 5 });
+const { result: found } = await layrcake.findLeads({ audience: "Heads of sales at US software companies with 50 to 500 staff", titles: ["Head of Sales"], locations: ["United States"], industries: ["Software Development"], company_headcount: { min: 50, max: 500 }, limit: 5 });
 const lead = found.leads[0]!;
 const { result: enriched } = await layrcake.enrich({ person: { full_name: lead.full_name!, company_domain: lead.company_domain! }, want: ["work_email"] });
 const email = enriched.contact?.work_email ?? lead.work_email!;
 const { result: check } = await layrcake.verifyEmail({ email });
 if (check.status !== "valid") throw new Error(`${email} is ${check.status}`);
-const { result: draft } = await layrcake.createCampaign({ name: "Q4 sales leaders", leads: [{ email }], steps: [{ subject: "Quick question", body: "Hi {{first_name}}, ..." }] });
+const { result: draft } = await layrcake.createCampaign({ name: "Q4 sales leaders", leads: [{ email }], steps: [{ subject: "Your outbound this quarter", body: "Hi {{first_name}}, ..." }] });
 const preview = await layrcake.launchCampaign({ campaign_id: draft.campaign_id });
 console.log("Ask a person to approve:", getApproval(preview)?.approvalUrl);
 ```
@@ -102,7 +102,7 @@ Credit amounts are decimal strings, exactly as the API sends them, such as `"1.2
 Most paid verbs accept `dry_run: true`. The call returns a plan instead: the most it can cost, how many sources could answer, and any limit it would trip. Nothing is looked up, reserved or charged. The return type follows the flag.
 
 ```ts
-const { result } = await layrcake.findLeads({ audience: "CFOs at UK fintechs", dry_run: true });
+const { result } = await layrcake.findLeads({ audience: "CFOs at UK fintechs", titles: ["CFO"], locations: ["United Kingdom"], industries: ["Financial Services"], dry_run: true });
 console.log(result.plan.would.maximum_credits);
 ```
 
@@ -149,7 +149,7 @@ Every error is a `LayrcakeError` with `status`, `code`, `message`, `details`, `r
 import { InsufficientCreditsError, LayrcakeError } from "layrcake";
 
 try {
-  await layrcake.findLeads({ audience: "CTOs at Series A startups" });
+  await layrcake.findLeads({ audience: "CTOs at US startups", titles: ["CTO"], locations: ["United States"] });
 } catch (error) {
   if (error instanceof InsufficientCreditsError) console.log("Top up at https://layrcake.dev");
   else if (error instanceof LayrcakeError) console.log(error.code, error.message, error.requestId);

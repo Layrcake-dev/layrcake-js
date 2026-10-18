@@ -37,3 +37,6 @@ Checked against the live API on 2026-10-18 with free, read-only calls only.
 17. **20 of 28 operations have no `summary` or `description`.** These are all 19 POST verbs (`verify_email` through `llm`) plus `get_operation`. SDK method docs, the README table and generated docs all need one line each.
 18. **Only `find_leads` and `research_company` have a request `example`.**
 19. **`llm` documents `stream: true` but not the streamed response.** There is no `text/event-stream` content type, and nothing on `stream_consumed`. The SDK refuses `stream: true` for now.
+
+## find_leads / find_companies required filters
+The live API refuses find_leads without at least one of titles, industries, locations or company_domains (and requires audience), and find_companies without one of query, hiring, technologies or similar_to. The spec marks these optional, so typed requests can be refused at runtime. Express it in the schema (e.g. a refinement documented in the description, or oneOf groups).
