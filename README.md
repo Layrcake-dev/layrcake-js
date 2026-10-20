@@ -192,6 +192,45 @@ if (approval) {
 
 `isApprovalRequired(response)` is the same check as a type guard. The SDK never approves anything and has no way to.
 
+## Agent tools
+
+`layrcake/agent-tools` turns the rules for agents at [layrcake.dev/agents.md](https://layrcake.dev/agents.md) into five tools that any agent framework can call: `find_leads`, `enrich`, `verify_email`, `create_campaign` and `launch_campaign`. It ships in this package and has no dependencies.
+
+```ts
+import { createAgentTools } from "layrcake/agent-tools";
+
+const { tools, summary, shouldStop } = createAgentTools({ budget: 100 }); // reads LAYRCAKE_API_KEY
+
+const people = await tools.find_leads.execute({ audience: "Heads of sales at London software companies", titles: ["Head of Sales"], locations: ["London, United Kingdom"] });
+// ... the model calls the other tools until shouldStop() is true ...
+console.log(summary()); // { found, kept, catchAll, spent, approvalUrl, launchError }
+```
+
+Each tool has a `name`, a `description` that includes its price, an `inputSchema` and an `execute` function. `inputSchema` implements [Standard Schema](https://standardschema.dev) with JSON Schema output, so the Vercel AI SDK (7 or later) and Mastra (1.11 or later) take it as is, with no zod. `parameters` holds the same schema as plain JSON Schema for function-calling APIs that want one.
+
+The rules live in code, so a prompt cannot turn them off:
+
+- Every paid call sends `budget_credits` set to what is left of `budget`. Paid calls run one at a time, even when the model calls tools in parallel, so the running total stays exact. Once the budget is spent, paid tools refuse.
+- `dryRun: true` sends `dry_run: true` on every call. Each call returns a plan with the most it could cost and charges nothing.
+- Every call carries an idempotency key built from `runId` and its arguments. A repeated call returns the first result instead of charging twice.
+- `create_campaign` takes only addresses that passed `verify_email` in this run.
+- `launch_campaign` takes only `campaign_id`. It has no `confirmation_token` argument, so the model can ask for approval but cannot give it. After it returns an approval link, every tool refuses, and `shouldStop()` turns true so you can end the loop.
+
+A refused call throws `AgentToolRefusal` before anything reaches the API. Its `code` is `approval_pending`, `budget_spent`, `unverified`, `missing_filter` or `invalid_input`, and its message tells the model what to do next. API errors arrive as the usual `LayrcakeError`.
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `budget` | required | Credit ceiling for the whole run. 1 credit is $0.01. |
+| `client` | `new Layrcake()` | The client the tools call. |
+| `dryRun` | `false` | Send `dry_run: true` on every call. |
+| `runId` | random UUID | Prefix for idempotency keys. Keep it stable across retries of the same run. |
+
+If your agent calls the hosted MCP server instead, for example through hooks in the Claude Agent SDK, `createAgentRun({ budget, dryRun, runId })` gives the same run state on its own: `ceiling()` for the next `budget_credits`, `charge()`, `recordVerification()`, `unverified()`, `recordLaunch()`, `refusal()`, `idempotencyKey()` and `summary()`.
+
+Framework packages built on this module: [@layrcake/ai-sdk](https://github.com/Layrcake-dev/layrcake-ai-sdk) for the Vercel AI SDK and [@layrcake/mastra](https://github.com/Layrcake-dev/layrcake-mastra) for Mastra.
+
+`layrcake/agent-tools` uses Web Crypto for idempotency keys. It runs on Node 20 or later, Bun, Deno, Cloudflare Workers and Vercel Edge. On Node 18, start Node with `--experimental-global-webcrypto`.
+
 ## Pricing
 
 Calls are billed in credits. See [docs.layrcake.dev/pricing.html](https://docs.layrcake.dev/pricing.html). `getMe()` is free and shows your balance.

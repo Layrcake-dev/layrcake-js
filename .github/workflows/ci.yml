@@ -32,5 +32,7 @@ jobs:
         run: |
           node --input-type=module -e "import { Layrcake, VERSION } from 'layrcake'; if (typeof Layrcake !== 'function') process.exit(1); console.log('esm', VERSION)"
           node -e "const { Layrcake, VERSION } = require('layrcake'); if (typeof Layrcake !== 'function') process.exit(1); console.log('cjs', VERSION)"
+          node --input-type=module -e "import { createAgentTools } from 'layrcake/agent-tools'; if (typeof createAgentTools !== 'function') process.exit(1)"
+          node -e "const { createAgentTools } = require('layrcake/agent-tools'); if (typeof createAgentTools !== 'function') process.exit(1)"
       - name: Package contents
         run: npm pack --dry-run
